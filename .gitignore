@@ -1,0 +1,20 @@
+# Ignore virtual environment
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Caches
+*.ipynb_checkpoints
+*.pytest_cache
+
+# Environment variables
+.env
+
+# Remove the tracked venv files
+git rm -r --cached venv/
+
+# Commit the change
+git commit -m "Removed virtual environment from version control"
+
