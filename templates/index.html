@@ -65,14 +65,18 @@
   </div>
 </nav>
 
-<!-- Go To Main Page Button -->
-<div class="text-center mt-5">
-  <a  href="main" class="btn btn-primary btn-lg">Go To Main Page</a>
-</div>
-
 {% if signup_message %}
-<h5 style="margin-left:42%;margin-top:10px; text:bold;">{{signup_message}}</h5>
+<h5 style="margin-left:42%;margin-top:10px;">{{signup_message}}</h5>
 {% endif %}
+
+<!-- Search Bar -->
+<div class="container" style="margin-top:30px;">
+  <form action="/recommendations" method="post" style="display:flex;">
+          <input type="text" class="form-control mr-2" name="prod" placeholder="Search for products...">
+          <input type="number" class="form-control" name="nbr" placeholder="Number of products..." style="width:100px;">
+          <button class="btn btn-primary">Search</button>
+  </form>
+</div>
 
 <!--trending recommendations-->
 <!-- Products -->
