@@ -43,74 +43,21 @@
       background-color: #000; /* Set modal content background color for dark theme */
       color: #fff; /* Set modal content text color for dark theme */
     }
-
-    table {
-      width: 80%;
-      margin: auto;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      padding: 10px;
-      text-align: left;
-      border: 1px solid #ddd;
-    }
-    th {
-      background-color: #f2f2f2;
-    }
-    h1 {
-      text-align: center;
-    }
   </style>
   <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-      <a class="navbar-brand mx-auto" href="#"
-        >Ecommerce Recommendation System</a
-      >
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-toggle="collapse"
-        data-target="#navbarNav"
-        aria-controls="navbarNav"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
-      >
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-        <ul class="navbar-nav">
-          <li class="nav-item active">
-            <a class="nav-link" href="#"><i class="fas fa-home"></i> Home</a>
-          </li>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-          <li class="nav-item">
-            <a class="nav-link" href="#" id="settingsLink"
-              ><i class="fas fa-cog"></i> Settings</a
-            >
-          </li>
-          <li class="nav-item">
-            <a
-              class="nav-link btn btn-outline-primary mr-2"
-              href="#"
-              data-toggle="modal"
-              data-target="#signupModal"
-              >Sign Up</a
-            >
-          </li>
-          <li class="nav-item">
-            <a
-              class="nav-link btn btn-primary"
-              href="#"
-              data-toggle="modal"
-              data-target="#signinModal"
-              >Sign In</a
-            >
-          </li>
-        </ul>
-      </div>
-    </nav>
+    <!-- Navbar -->
+    <div id="navbar-container"></div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+      $(document).ready(function () {
+        $("#navbar-container").load("navbar");
+      });
+    </script>
 
     {% if signup_message %}
     <h5 style="margin-left: 42%; margin-top: 10px">{{signup_message}}</h5>
@@ -125,6 +72,13 @@
           name="prod"
           placeholder="Search for products..."
         />
+        <input
+          type="number"
+          class="form-control"
+          name="nbr"
+          placeholder="Number of products..."
+          style="width: 100px"
+        />
         <button class="btn btn-primary">Search</button>
       </form>
     </div>
@@ -132,48 +86,20 @@
     <!--trending recommendations-->
     <!-- Products -->
     <div class="container mt-5">
-      <h1>Top 10 Most Rated Products</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>Product Name</th>
-            <th>Category</th>
-            <th>Discounted Price</th>
-            <th>Actual Price</th>
-            <th>Rating</th>
-            <th>Rating Count</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for product in products %}
-          <tr>
-            <td>{{ product['product_name'] }}</td>
-            <td>{{ product['category'] }}</td>
-            <td>${{ product['discounted_price'] }}</td>
-            <td>${{ product['actual_price'] }}</td>
-            <td>{{ product['rating'] }}</td>
-            <td>{{ product['rating_count'] }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="container mt-5">
       <h2 class="text-center mb-4">Trending Products</h2>
       <div class="row mt-4">
-        {% for product in products %}
+        {% for index, product in top_rated_items.iterrows() %}
         <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
           <div class="card">
-            <img
-              src=" "
-              class="card-img-top"
-              alt="{{ product['product_name'] }}"
-              style="height: 200px"
-            />
             <div class="card-body">
-              <h5 class="card-title">{{product['product_name']}}</h5>
-
+              <h5 class="card-title">
+                {{ product['product_name'] }}
+              </h5>
+              <p class="card-text">Price: ${{ product['actual_price'] }}</p>
+              <p class="card-text">
+                Rating: {{ product['rating'] }} ({{ product['rating_count'] }}
+                reviews)
+              </p>
               <button
                 type="button"
                 class="btn btn-primary"
@@ -211,24 +137,16 @@
               </div>
               <div class="modal-body">
                 <div class="row">
-                  <div class="col-md-4">
-                    <img
-                      src=" "
-                      class="img-fluid"
-                      alt="{{ product['product_name'] }}"
-                      style="height: 200px"
-                    />
-                  </div>
+                  <div class="col-md-4"></div>
                   <div class="col-md-8">
-                    <!-- Add other product details here -->
-                    <!-- Example: -->
                     <p>
                       <strong>Review Count:</strong> {{ product['rating_count']
                       }}
                     </p>
                     <p><strong>Rating:</strong> {{ product['rating'] }}</p>
-                    <p><strong>Price:</strong> {{ product['actual_price'] }}</p>
-                    <!-- Add more details as needed -->
+                    <p>
+                      <strong>Price:</strong> ${{ product['actual_price'] }}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -250,296 +168,5 @@
         {% endfor %}
       </div>
     </div>
-
-    <!-- Bootstrap modal for sign up -->
-    <div
-      class="modal fade"
-      id="signupModal"
-      tabindex="-1"
-      aria-labelledby="signupModalLabel"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="signupModalLabel">Sign Up</h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Close"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <form action="/signup" method="post">
-              <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="username"
-                  name="username"
-                  required
-                />
-              </div>
-              <div class="mb-3">
-                <label for="email" class="form-label">Email</label>
-                <input
-                  type="email"
-                  class="form-control"
-                  id="email"
-                  name="email"
-                  required
-                />
-              </div>
-              <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input
-                  type="password"
-                  class="form-control"
-                  id="password"
-                  name="password"
-                  required
-                />
-              </div>
-              <button type="submit" class="btn btn-primary">Sign Up</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bootstrap modal for sign in -->
-    <div
-      class="modal fade"
-      id="signinModal"
-      tabindex="-1"
-      aria-labelledby="signinModalLabel"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="signinModalLabel">Sign In</h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Close"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <form action="/signin" method="post">
-              <div class="mb-3">
-                <label for="signinUsername" class="form-label">Username</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="signinUsername"
-                  name="signinUsername"
-                  required
-                />
-              </div>
-              <div class="mb-3">
-                <label for="signinPassword" class="form-label">Password</label>
-                <input
-                  type="password"
-                  class="form-control"
-                  id="signinPassword"
-                  name="signinPassword"
-                  required
-                />
-              </div>
-              <button type="submit" class="btn btn-primary">Sign In</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Settings Modal -->
-    <div
-      class="modal fade"
-      id="settingsModal"
-      tabindex="-1"
-      role="dialog"
-      aria-labelledby="settingsModalLabel"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="settingsModalLabel">Settings</h5>
-            <button
-              type="button"
-              class="close"
-              data-dismiss="modal"
-              aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            <h5>Choose Theme:</h5>
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="theme"
-                id="defaultTheme"
-                value="default"
-                checked
-              />
-              <label class="form-check-label" for="defaultTheme">
-                Default
-              </label>
-            </div>
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="theme"
-                id="blackTheme"
-                value="black"
-              />
-              <label class="form-check-label" for="blackTheme">
-                Black Theme
-              </label>
-            </div>
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="theme"
-                id="greenTheme"
-                value="green"
-              />
-              <label class="form-check-label" for="greenTheme">
-                Green Theme
-              </label>
-            </div>
-            <hr />
-            <h5>Zoom:</h5>
-            <button type="button" class="btn btn-primary mr-2" id="zoomIn">
-              Zoom In
-            </button>
-            <button type="button" class="btn btn-primary" id="zoomOut">
-              Zoom Out
-            </button>
-          </div>
-          <div class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              data-dismiss="modal"
-            >
-              Close
-            </button>
-            <button type="button" class="btn btn-primary" id="applyTheme">
-              Apply
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
-    <script>
-      // Handle click on Settings link to open the modal
-      document
-        .getElementById("settingsLink")
-        .addEventListener("click", function () {
-          $("#settingsModal").modal("show");
-        });
-
-      // Handle theme apply button click
-      document
-        .getElementById("applyTheme")
-        .addEventListener("click", function () {
-          // Get the selected theme value
-          var selectedTheme = document.querySelector(
-            'input[name="theme"]:checked'
-          ).value;
-
-          // Apply the selected theme
-          if (selectedTheme === "black") {
-            document.body.style.backgroundColor = "black";
-            document.body.style.color = "white";
-          } else if (selectedTheme === "green") {
-            document.body.style.backgroundColor = "green";
-            document.body.style.color = "white";
-          } else {
-            // Default theme
-            document.body.style.backgroundColor = "#f8f9fa";
-            document.body.style.color = "black";
-          }
-
-          // Close the modal
-          $("#settingsModal").modal("hide");
-        });
-
-      // Handle zoom in button click
-      document.getElementById("zoomIn").addEventListener("click", function () {
-        document.body.style.zoom = "115%";
-      });
-
-      // Handle zoom out button click
-      document.getElementById("zoomOut").addEventListener("click", function () {
-        document.body.style.zoom = "100%";
-      });
-    </script>
-
-    <!--footer-->
-    <footer class="footer bg-dark text-white">
-      <div class="container" style="padding-top: 20px">
-        <div class="row">
-          <div class="col-md-3 col-sm-6">
-            <h5>About Us</h5>
-            <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla
-              pretium risus quis urna maximus, eget vestibulum risus vestibulum.
-            </p>
-          </div>
-          <div class="col-md-3 col-sm-6">
-            <h5>Quick Links</h5>
-            <ul class="list-unstyled">
-              <li><a href="#">Home</a></li>
-              <li><a href="#">About</a></li>
-              <li><a href="#">Services</a></li>
-              <li><a href="#">Contact</a></li>
-            </ul>
-          </div>
-          <div class="col-md-3 col-sm-6">
-            <h5>Support</h5>
-            <ul class="list-unstyled">
-              <li><a href="#">FAQ</a></li>
-              <li><a href="#">Terms of Service</a></li>
-              <li><a href="#">Privacy Policy</a></li>
-            </ul>
-          </div>
-          <div class="col-md-3 col-sm-6">
-            <h5>Contact Us</h5>
-            <address>
-              <strong>Company Name</strong><br />
-              123 Street, City<br />
-              Country<br />
-              <i class="fas fa-phone"></i> Phone: +1234567890<br />
-              <i class="fas fa-envelope"></i> Email: info@example.com
-            </address>
-          </div>
-        </div>
-        <div class="row mt-3">
-          <div class="col-md-12">
-            <hr class="bg-light" />
-            <p class="text-center">
-              © 2024 Ecommerce Recommendation System. All Rights Reserved.
-            </p>
-          </div>
-        </div>
-      </div>
-    </footer>
   </body>
 </html>
