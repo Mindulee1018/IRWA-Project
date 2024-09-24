@@ -1,21 +1,26 @@
-from flask import Flask, request, render_template
 import pandas as pd
-import random
+import numpy as np
+import matplotlib.pyplot as plt
+import nltk
+
+from flask import Flask, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem.porter import PorterStemmer
+from sklearn.feature_extraction.text import CountVectorizer
+
+# Download punkt 
+nltk.download('punkt')
+nltk.download('punkt_tab')
 
 app = Flask(__name__)
 
-print("App is starting...")
-
-
 # load files
-data_file = 'cleaned_train_data.csv'  # Adjust the path if necessary
-train_data = pd.read_csv(data_file)
-
-# Sort by rating_count and get the top 10 most-rated products
-top_rated_products = train_data.nlargest(10, 'rating_count')[['product_name', 'category', 'discounted_price', 'actual_price', 'rating', 'rating_count']]
+top_rated_products = pd.read_csv("top_rated_products.csv")
+df = pd.read_csv("cleaned_train_data.csv")
 
 # database configuration
 app.secret_key = "Mindu2002"
@@ -37,25 +42,54 @@ class Signin(db.Model):
     password = db.Column(db.String(100), nullable=False)
 
 
-# Recommendations functions
 
-def content_based_recommendations(train_data, product_name):
+#Creating tags
+# Define the set of stop words
+stop_words = set(stopwords.words('english'))
+
+def clean_and_extract_tags(text):
+    # Tokenize the text and convert to lowercase
+    tokens = word_tokenize(text.lower())
+    # Filter out non-alphanumeric tokens and stop words
+    tags = [token for token in tokens if token.isalnum() and token not in stop_words]
+    return ', '.join(tags)
+
+columns_to_extract_tags_from = ['category', 'about_product']
+
+for column in columns_to_extract_tags_from:
+    df[column] = df[column].apply(clean_and_extract_tags)
+
+# Concatenate the cleaned tags from all relevant columns
+df['Tags'] = df[columns_to_extract_tags_from].apply(lambda row: ', '.join(row), axis=1)
+
+
+# Recommendations functions
+#Rating based recommendation
+average_ratings = df.groupby(['product_id', 'product_name', 'actual_price', 'category', 'about_product', 'product_link', 'rating_count'])['rating'].mean().reset_index()
+top_rated_items = average_ratings.sort_values(by='rating', ascending=False)
+
+rating_base_recommendation = top_rated_items.head(10)
+rating_base_recommendation['rating'] = rating_base_recommendation['rating'].astype(int)
+rating_base_recommendation['rating_count'] = rating_base_recommendation['rating_count'].astype(int)
+
+#Contenct Based Recommendation System
+def content_based_recommendations(df, item_name, top_n=10):
     # Check if the item name exists in the training data
-    if product_name not in train_data['product_name'].values:
-        print(f"Item '{product_name}' not found in the training data.")
+    if item_name not in df['product_name'].values:
+        print(f"Item '{item_name}' not found in the training data.")
         return pd.DataFrame()
 
     # Create a TF-IDF vectorizer for item descriptions
     tfidf_vectorizer = TfidfVectorizer(stop_words='english')
 
     # Apply TF-IDF vectorization to item descriptions
-    tfidf_matrix_content = tfidf_vectorizer.fit_transform(train_data['about_product'])
+    tfidf_matrix_content = tfidf_vectorizer.fit_transform(df['Tags'])
 
     # Calculate cosine similarity between items based on descriptions
     cosine_similarities_content = cosine_similarity(tfidf_matrix_content, tfidf_matrix_content)
 
     # Find the index of the item
-    item_index = train_data[train_data['product_name'] == product_name].index[0]
+    item_index = df[df['product_name'] == item_name].index[0]
 
     # Get the cosine similarity scores for the item
     similar_items = list(enumerate(cosine_similarities_content[item_index]))
@@ -63,21 +97,27 @@ def content_based_recommendations(train_data, product_name):
     # Sort similar items by similarity score in descending order
     similar_items = sorted(similar_items, key=lambda x: x[1], reverse=True)
 
-    # Get the indices of all similar items (excluding the first item, which is the product itself)
-    similar_item_indices = [i[0] for i in similar_items if i[0] != item_index]
+    # Get the top N most similar items (excluding the item itself)
+    top_similar_items = similar_items[1:top_n+1]
+
+    # Get the indices of the top similar items
+    recommended_item_indices = [x[0] for x in top_similar_items]
 
     # Get the details of the top similar items
-    recommended_items_details = train_data.iloc[similar_item_indices][['product_name', 'rating_count', 'rating']]
+    recommended_items_details = df.iloc[recommended_item_indices][['product_name', 'rating_count', 'rating']]
 
     return recommended_items_details
 
 # routes
-@app.route("/")
+@app.route("/index")
 def index():
-    
-    # Pass the top 10 products to the HTML template
-    return render_template('index.html', products=top_rated_products.to_dict(orient='records'))
+    top_rated_items = pd.read_csv('top_rated_products.csv')
 
+    return render_template('index.html', top_rated_items=top_rated_items)
+
+@app.route('/navbar')
+def navbar():
+    return render_template('navbar.html')
 
 @app.route("/signup", methods=['POST','GET'])
 def signup():
@@ -108,11 +148,14 @@ def signin():
 def recommendations():
     if request.method == 'POST':
         prod = request.form.get('prod')
-        content_based_rec = content_based_recommendations(train_data, prod)
+        nbr = int(request.form.get('nbr'))
+        content_based_rec = content_based_recommendations(df, prod, top_n=nbr)
 
         if content_based_rec.empty:
             message = "No recommendations available for this product."
             return render_template('index.html', message=message)
+        else:
+            return render_template('recommendations.html', content_based_rec=content_based_rec)
        
 
 if __name__=='__main__':
