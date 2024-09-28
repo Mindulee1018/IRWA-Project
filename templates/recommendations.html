@@ -92,8 +92,8 @@
           <div class="card">
             <div class="card-body">
               <h5 class="card-title">
-                {{ product['product_name'] }}
-              </h5>
+                {{ truncate(product['product_name'], 15) }}
+              </h5>              
               <p class="card-text">Price: ${{ product['actual_price'] }}</p>
               <p class="card-text">
                 Rating: {{ product['rating'] }} ({{ product['rating_count'] }}
@@ -122,9 +122,9 @@
           <div class="modal-dialog" role="document">
             <div class="modal-content">
               <div class="modal-header">
-                <h5 class="modal-title" id="productModalLabel">
-                  {{ product['product_name'] }}
-                </h5>
+                <h5 class="card-title">
+                  {{ truncate(product['product_name'], 15) }}
+                </h5>                
                 <button
                   type="button"
                   class="close"

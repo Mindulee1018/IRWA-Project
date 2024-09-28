@@ -12,7 +12,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 # Download punkt 
 nltk.download('punkt')
-nltk.download('punkt_tab')
+nltk.download('stopwords')
 
 app = Flask(__name__)
 
@@ -60,6 +60,13 @@ for column in columns_to_extract_tags_from:
 # Concatenate the cleaned tags from all relevant columns
 df['Tags'] = df[columns_to_extract_tags_from].apply(lambda row: ', '.join(row), axis=1)
 
+
+# Function to truncate product name
+def truncate(text, length):
+    if len(text) > length:
+        return text[:length] + "..."
+    else:
+        return text
 
 # Recommendations functions
 #Rating based recommendation
@@ -123,11 +130,11 @@ def content_based_recommendations(df, item_name, top_n=10):
 @app.route("/")
 def index():
     top_rated_items = pd.read_csv('top_rated_products.csv')
-    return render_template('index.html', top_rated_items=top_rated_items)
+    return render_template('index.html', top_rated_items=top_rated_items, truncate=truncate)
 
 @app.route("/index")
 def home():   
-    return render_template('index.html')
+    return render_template('index.html', truncate=truncate)
 
 @app.route('/navbar')
 def navbar():
@@ -154,10 +161,9 @@ def signin():
         password = request.form['signinPassword']
         new_signup = Signin(username=username,password=password)
         db.session.add(new_signup)
-        db.session.commit()
+        db.session.commit()       
 
-        
-    
+
 @app.route("/recommendations", methods=['POST', 'GET'])
 def recommendations():
     
@@ -172,12 +178,12 @@ def recommendations():
             # Make sure to load the top rated items to show them
             top_rated_items = pd.read_csv('top_rated_products.csv')
 
-            return render_template('index.html', message=message,  top_rated_items=top_rated_items)
+            return render_template('index.html', message=message,  top_rated_items=top_rated_items, truncate=truncate)
         else:
-            return render_template('recommendations.html', content_based_rec=content_based_rec)
+            return render_template('recommendations.html', content_based_rec=content_based_rec, truncate=truncate)
         
     # If the request is not POST, just render the index
-    return render_template('index.html')
+    return render_template('index.html', truncate=truncate)
        
 
 if __name__=='__main__':
