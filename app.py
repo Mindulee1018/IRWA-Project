@@ -40,7 +40,6 @@ class Signin(db.Model):
     password = db.Column(db.String(100), nullable=False)
 
 
-
 #Creating tags
 # Define the set of stop words
 stop_words = set(stopwords.words('english'))
@@ -122,7 +121,7 @@ def content_based_recommendations(df, item_name, top_n=10):
     recommended_item_indices = [x[0] for x in top_similar_items]
 
     # Get the details of the top similar items
-    recommended_items_details = df.iloc[recommended_item_indices][['product_name', 'rating_count', 'rating']]
+    recommended_items_details = df.iloc[recommended_item_indices][['product_id', 'product_name', 'rating_count', 'rating']]
 
     return recommended_items_details
 
@@ -151,8 +150,6 @@ def signup():
         db.session.add(new_signup)
         db.session.commit()
 
-
-
 # Route for signup page
 @app.route('/signin', methods=['POST', 'GET'])
 def signin():
@@ -161,7 +158,7 @@ def signin():
         password = request.form['signinPassword']
         new_signup = Signin(username=username,password=password)
         db.session.add(new_signup)
-        db.session.commit()       
+        db.session.commit()             
 
 
 @app.route("/recommendations", methods=['POST', 'GET'])
@@ -174,7 +171,7 @@ def recommendations():
 
         if content_based_rec.empty:
             message = "No recommendations available for this product."
-
+            
             # Make sure to load the top rated items to show them
             top_rated_items = pd.read_csv('top_rated_products.csv')
 
