@@ -256,5 +256,101 @@
         {% endfor %}
       </div>
     </div>
+
+
+    <div class="container mt-5">
+      <h2 class="text-center mb-4">Recommended for you</h2>
+      <div class="row mt-4">
+        {% for product in hybrid_rec.iterrows() %}
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">
+                {{ truncate(product['product_name'], 15) }}
+              </h5>
+              <img
+                src="{{ url_for('static', filename='Images/' + product['product_id'] ~ '.jpg') }}"
+                alt="{{ product['product_name'] }}"
+                style="width: 150px; height: 150px"
+              />
+              <p class="card-text">Price: ${{ product['actual_price'] }}</p>
+              <p class="card-text">
+                Rating: {{ product['rating'] }} ({{ product['rating_count'] }}
+                reviews)
+              </p>
+              <p class="card-text">ProductID: {{ product['product_id'] }}</p>
+              <button
+                type="button"
+                class="btn btn-primary"
+                data-toggle="modal"
+                data-target="#productModal{{ index }}"
+              >
+                Buy Now
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Modal -->
+        <div
+          class="modal fade"
+          id="productModal{{ index }}"
+          tabindex="-1"
+          role="dialog"
+          aria-labelledby="productModalLabel"
+          aria-hidden="true"
+        >
+          <div class="modal-dialog" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="productModalLabel">
+                  {{ product['product_name'] }}
+                </h5>
+                <button
+                  type="button"
+                  class="close"
+                  data-dismiss="modal"
+                  aria-label="Close"
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <div class="row">
+                  <div class="col-md-4"></div>
+                  <div class="col-md-8">
+                    <img
+                      src="{{ url_for('static', filename='Images/' + product['product_id'] ~ '.jpg') }}"
+                      alt="{{ product['product_name'] }}"
+                      style="width: 150px; height: 150px"
+                    />
+                    <p>
+                      <strong>Review Count:</strong> {{ product['rating_count']
+                      }}
+                    </p>
+                    <p><strong>Rating:</strong> {{ product['rating'] }}</p>
+                    <p>
+                      <strong>Price:</strong> ${{ product['actual_price'] }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-dismiss="modal"
+                >
+                  Close
+                </button>
+                <button type="button" class="btn btn-primary">
+                  Add to Cart
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
   </body>
 </html>

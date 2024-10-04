@@ -39,6 +39,12 @@ class Signin(db.Model):
     username = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(100), nullable=False)
 
+# Define model class for browsing history
+class BrowsingHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    product_id = db.Column(db.Integer, nullable=False)
+    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 
 #Creating tags
@@ -126,6 +132,31 @@ def content_based_recommendations(df, item_name, top_n=10):
 
     return recommended_items_details
 
+# Collaborative Filtering Recommendations (Stub)
+def collaborative_filtering_recommendations(df, target_user_id, top_n=10):
+    # Implement your collaborative filtering logic here.
+    # For now, returning an empty DataFrame as a placeholder.
+    return pd.DataFrame()
+
+# Hybrid Recommendations
+def get_browsing_history(user_id):
+    history = BrowsingHistory.query.filter_by(user_id=user_id).all()
+    return [entry.product_id for entry in history]
+
+def hybrid_recommendations(df, target_user_id, item_name, top_n=10):
+    content_based_rec = content_based_recommendations(df, item_name, top_n)
+    collaborative_filtering_rec = collaborative_filtering_recommendations(df, target_user_id, top_n)
+
+    # Get browsing history recommendations
+    browsing_history = get_browsing_history(target_user_id)
+    if browsing_history:
+        history_recommendations = df[df['product_id'].isin(browsing_history)].head(top_n)
+        hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, history_recommendations]).drop_duplicates()
+    else:
+        hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec]).drop_duplicates()
+
+    return hybrid_rec.head(top_n)
+
 # routes
 @app.route("/")
 def index():
@@ -142,6 +173,8 @@ def navbar():
 
 @app.route("/signup", methods=['POST','GET'])
 def signup():
+    # Make sure to load the top rated items to show them
+    top_rated_items = pd.read_csv('top_rated_products.csv')
     if request.method=='POST':
         username = request.form['username']
         email = request.form['email']
@@ -151,38 +184,62 @@ def signup():
         db.session.add(new_signup)
         db.session.commit()
 
+        return render_template('index.html',   top_rated_items=top_rated_items, truncate=truncate)
 
 
-# Route for signup page
+
+# Route for sigin page
 @app.route('/signin', methods=['POST', 'GET'])
 def signin():
+    # Load top-rated items
+    top_rated_items = pd.read_csv('top_rated_products.csv')
+    
+    # Example of loading hybrid_rec; replace with your actual data loading logic
+    hybrid_rec = pd.read_csv('top_rated_products.csv')  # Adjust as necessary
+
     if request.method == 'POST':
         username = request.form['signinUsername']
         password = request.form['signinPassword']
-        new_signup = Signin(username=username,password=password)
+        
+        new_signup = Signin(username=username, password=password)
         db.session.add(new_signup)
-        db.session.commit()       
+        db.session.commit()
+
+        # Pass both top_rated_items and hybrid_rec to the template
+        return render_template('index.html', 
+                               top_rated_items=top_rated_items, 
+                               hybrid_rec=hybrid_rec,  # Make sure this variable is defined
+                               truncate=truncate)
+
+    # If it's a GET request, you might still want to render the index with empty data or other info
+    return render_template('index.html', 
+                           top_rated_items=top_rated_items, 
+                           hybrid_rec=None,  # Optionally pass None or an empty list
+                           truncate=truncate)
+
 
 
 @app.route("/recommendations", methods=['POST', 'GET'])
 def recommendations():
-    
     if request.method == 'POST':
-        prod = request.form.get('prod')
+        target_user_id = int(request.form.get('user_id'))  # Assuming user_id is submitted from the form
+        item_name = request.form.get('prod')
         nbr = int(request.form.get('nbr'))
-        content_based_rec = content_based_recommendations(df, prod, top_n=nbr)
-
-        if content_based_rec.empty:
-            message = "No recommendations available for this product."
-
-            # Make sure to load the top rated items to show them
-            top_rated_items = pd.read_csv('top_rated_products.csv')
-
-            return render_template('index.html', message=message,  top_rated_items=top_rated_items, truncate=truncate)
-        else:
-            return render_template('recommendations.html', content_based_rec=content_based_rec, truncate=truncate)
         
-    # If the request is not POST, just render the index
+        # Save browsing history
+        history_entry = BrowsingHistory(user_id=target_user_id, product_id=df[df['product_name'] == item_name]['product_id'].values[0])
+        db.session.add(history_entry)
+        db.session.commit()
+        
+        hybrid_rec = hybrid_recommendations(df, target_user_id, item_name, top_n=nbr)
+
+        if hybrid_rec.empty:
+            message = "No recommendations available for this product."
+            top_rated_items = pd.read_csv('top_rated_products.csv')
+            return render_template('index.html', message=message, top_rated_items=top_rated_items, truncate=truncate)
+        else:
+            return render_template('recommendations.html', hybrid_rec=hybrid_rec, truncate=truncate)
+        
     return render_template('index.html', truncate=truncate)
        
 
