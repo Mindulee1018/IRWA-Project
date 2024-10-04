@@ -22,7 +22,7 @@ df = pd.read_csv("cleaned_train_data.csv")
 
 # database configuration
 app.secret_key = "Mindu2002"
-app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqldb://root:@localhost:3307/ecommerce"
+app.config['SQLALCHEMY_DATABASE_URI'] = "mysql://root:@localhost/ecommerce"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
