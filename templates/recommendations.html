@@ -193,7 +193,8 @@
     <div class="container mt-5">
       <h2 class="text-center mb-4">Recommended Products</h2>
       <div class="row mt-4">
-        {% for index, product in content_based_rec.iterrows() %}
+        {% if hybrid_rec is defined and hybrid_rec.empty == false %} {% for
+        index, product in hybrid_rec.iterrows() %}
         <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
           <div class="card">
             <div class="card-body">
@@ -210,9 +211,7 @@
                 Rating: {{ product['rating'] }} ({{ product['rating_count'] }}
                 reviews)
               </p>
-              <p class="card-text">
-                ProductID: {{ product['product_id'] }}
-              </p>
+              <p class="card-text">ProductID: {{ product['product_id'] }}</p>
               <button
                 type="button"
                 class="btn btn-primary"
@@ -280,7 +279,9 @@
             </div>
           </div>
         </div>
-        {% endfor %}
+        {% endfor %} {% else %}
+        <p class="text-center">No recommendations available.</p>
+        {% endif %}
       </div>
     </div>
   </body>

@@ -258,20 +258,22 @@
     </div>
 
 
+    <!-- Products -->
     <div class="container mt-5">
-      <h2 class="text-center mb-4">Recommended for you</h2>
+      <h2 class="text-center mb-4">Recommended Products</h2>
       <div class="row mt-4">
-        {% for product in hybrid_rec.iterrows() %}
+        {% if hybrid_rec is defined and hybrid_rec.empty == false %} {% for
+        index, product in hybrid_rec.iterrows() %}
         <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
           <div class="card">
             <div class="card-body">
               <h5 class="card-title">
-                {{ truncate(product['product_name'], 15) }}
+                {{ truncate(product['product_name'], 25) }}
               </h5>
               <img
                 src="{{ url_for('static', filename='Images/' + product['product_id'] ~ '.jpg') }}"
                 alt="{{ product['product_name'] }}"
-                style="width: 150px; height: 150px"
+                style="width: 100px; height: 100px"
               />
               <p class="card-text">Price: ${{ product['actual_price'] }}</p>
               <p class="card-text">
@@ -302,9 +304,7 @@
           <div class="modal-dialog" role="document">
             <div class="modal-content">
               <div class="modal-header">
-                <h5 class="modal-title" id="productModalLabel">
-                  {{ product['product_name'] }}
-                </h5>
+                <h5 class="card-title">{{ product['product_name'] }}</h5>
                 <button
                   type="button"
                   class="close"
@@ -316,12 +316,11 @@
               </div>
               <div class="modal-body">
                 <div class="row">
-                  <div class="col-md-4"></div>
                   <div class="col-md-8">
                     <img
                       src="{{ url_for('static', filename='Images/' + product['product_id'] ~ '.jpg') }}"
                       alt="{{ product['product_name'] }}"
-                      style="width: 150px; height: 150px"
+                      style="width: 100px; height: 100px"
                     />
                     <p>
                       <strong>Review Count:</strong> {{ product['rating_count']
@@ -349,7 +348,9 @@
             </div>
           </div>
         </div>
-        {% endfor %}
+        {% endfor %} {% else %}
+        <p class="text-center">No recommendations available.</p>
+        {% endif %}
       </div>
     </div>
   </body>
