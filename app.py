@@ -22,7 +22,7 @@ df = pd.read_csv("cleaned_train_data.csv")
 
 # database configuration
 app.secret_key = "Mindu2002"
-app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+pymysql://root@localhost/ecommerce"
+app.config['SQLALCHEMY_DATABASE_URI'] = "mysql://root@localhost/ecommerce"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -148,10 +148,10 @@ def get_browsing_history(user_id):
 def hybrid_recommendations(df, target_user_id, item_name, top_n=10):
     content_based_rec = content_based_recommendations(df, item_name, top_n)
     collaborative_filtering_rec = collaborative_filtering_recommendations(df, target_user_id, top_n)
-    browsing_history = get_browsing_history(target_user_id)
+    browsinghistory = get_browsing_history(target_user_id)
 
-    if browsing_history:
-        history_recommendations = df[df['product_id'].isin(browsing_history)].head(top_n)
+    if browsinghistory:
+        history_recommendations = df[df['product_id'].isin(browsinghistory)].head(top_n)
         hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, history_recommendations]).drop_duplicates()
     else:
         hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec]).drop_duplicates()
