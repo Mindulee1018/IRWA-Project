@@ -43,9 +43,9 @@ class Signin(db.Model):
 class BrowsingHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, nullable=False)
-    product_id = db.Column(db.Integer, nullable=False)
+    product_id = db.Column(db.Integer, nullable=True)
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
-
+    product_names = db.Column(db.String(500), nullable=True)
 
 # Preprocess text for tags extraction
 stop_words = set(stopwords.words('english'))
@@ -134,11 +134,32 @@ def content_based_recommendations(df, item_name, top_n=10):
 
 # Collaborative Filtering Recommendations (Stub)
 def collaborative_filtering_recommendations(df, target_user_id, top_n=10):
-    # Implement your collaborative filtering logic here.
-    # For now, returning an empty DataFrame as a placeholder.
-    user_item_matrix = pd.pivot_table(df, values='rating', index='user_id', columns='product_id')
-    recommendations = [] 
-    return pd.DataFrame(recommendations)
+    # Create a user-item matrix
+    user_item_matrix = df.pivot_table(values='rating', index='user_id', columns='product_id')
+    
+    # Fill NaN values with 0 for collaborative filtering
+    user_item_matrix = user_item_matrix.fillna(0)
+
+    # Calculate cosine similarity between users
+    user_similarity = cosine_similarity(user_item_matrix)
+
+    # Create a DataFrame for easier user similarity handling
+    user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
+
+    # Get the similar users for the target user
+    similar_users = user_similarity_df[target_user_id].sort_values(ascending=False).index[1:top_n + 1]
+
+    # Get product recommendations from similar users
+    recommendations = pd.Series(dtype=float)
+    
+    for similar_user in similar_users:
+        similar_user_products = user_item_matrix.loc[similar_user]
+        recommendations = pd.concat([recommendations, similar_user_products[similar_user_products > 0]])
+
+    # Aggregate recommendations and filter top N products
+    recommendations = recommendations.groupby(recommendations.index).sum().sort_values(ascending=False).head(top_n)
+
+    return df[df['product_id'].isin(recommendations.index)][['product_name', 'rating_count', 'rating']]
 
 # Hybrid Recommendations
 def get_browsing_history(user_id):
@@ -150,11 +171,12 @@ def hybrid_recommendations(df, target_user_id, item_name, top_n=10):
     collaborative_filtering_rec = collaborative_filtering_recommendations(df, target_user_id, top_n)
     browsinghistory = get_browsing_history(target_user_id)
 
+    # Combine recommendations while ensuring no duplicates
+    hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec])
+
     if browsinghistory:
         history_recommendations = df[df['product_id'].isin(browsinghistory)].head(top_n)
         hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, history_recommendations]).drop_duplicates()
-    else:
-        hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec]).drop_duplicates()
 
     return hybrid_rec.head(top_n)
 
@@ -163,13 +185,17 @@ def hybrid_recommendations(df, target_user_id, item_name, top_n=10):
 def index():
     target_user_id = session.get('user_id')
     item_name = ""
+    if target_user_id is None:
+        # Redirect to the login page or show an appropriate message
+        return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate, message="Please log in to see personalized recommendations.")
+    
     hybrid_rec = hybrid_recommendations(df, target_user_id, item_name, top_n=10)
 
     return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate, hybrid_rec=hybrid_rec)
 
 @app.route("/index")
 def home():   
-    return render_template('index.html', truncate=truncate)
+    return render_template('index.html', truncate=truncate, top_rated_items=rating_base_recommendation)
 
 @app.route('/navbar')
 def navbar():
@@ -220,29 +246,22 @@ def recommendations():
         target_user_id = session.get('user_id')
         item_name = request.form.get('prod')
         nbr = int(request.form.get('nbr'))
-        
-        # Save browsing history
-        history_entry = BrowsingHistory(user_id=target_user_id, product_id=df[df['product_name'] == item_name]['product_id'].values[0])
-        db.session.add(history_entry)
-        db.session.commit()
-        
-        # Save browsing history if item_name is provided
-        if item_name:
-            product_id = df[df['product_name'] == item_name]['product_id'].values[0]
-            history_entry = BrowsingHistory(user_id=target_user_id, product_id=product_id)
+
+        if target_user_id and item_name:
+            # Create a new BrowsingHistory entry
+            history_entry = BrowsingHistory(user_id=target_user_id, product_id=None, timestamp=db.func.current_timestamp(), product_names=item_name)  # product_id is None for search
             db.session.add(history_entry)
             db.session.commit()
 
-            hybrid_rec = hybrid_recommendations(df, target_user_id, item_name, top_n=nbr)
+        content_based_rec = content_based_recommendations(df, item_name, top_n=nbr)
 
-            if hybrid_rec.empty:
-                message = "No recommendations available for this product."
-                return render_template('index.html', message=message, top_rated_items=rating_base_recommendation, truncate=truncate)
-            else:
-                return render_template('recommendations.html', hybrid_rec=hybrid_rec, truncate=truncate)
-        
+        if content_based_rec.empty:
+            message = "no recommendations available for this product."
+            
+            return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate, message=message)
+        else:
+            return render_template('recommendations.html', content_based_rec = content_based_rec, truncate=truncate)
     return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate)
-       
 
 if __name__=='__main__':
     app.run(debug=True)
