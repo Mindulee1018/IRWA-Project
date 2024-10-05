@@ -1,7 +1,7 @@
 import pandas as pd
 import nltk
 
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -12,7 +12,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 # Download punkt 
 nltk.download('punkt')
-nltk.download('punkt_tab')
+nltk.download('stopwords')
 
 app = Flask(__name__)
 
@@ -22,7 +22,7 @@ df = pd.read_csv("cleaned_train_data.csv")
 
 # database configuration
 app.secret_key = "Mindu2002"
-app.config['SQLALCHEMY_DATABASE_URI'] = "mysql://root:@localhost/ecommerce"
+app.config['SQLALCHEMY_DATABASE_URI'] = "mysql://root@localhost/ecommerce"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -39,10 +39,15 @@ class Signin(db.Model):
     username = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(100), nullable=False)
 
+# Define model class for browsing history
+class BrowsingHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    product_id = db.Column(db.Integer, nullable=False)
+    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 
-#Creating tags
-# Define the set of stop words
+# Preprocess text for tags extraction
 stop_words = set(stopwords.words('english'))
 
 def clean_and_extract_tags(text):
@@ -61,7 +66,15 @@ for column in columns_to_extract_tags_from:
 df['Tags'] = df[columns_to_extract_tags_from].apply(lambda row: ', '.join(row), axis=1)
 
 
+# Function to truncate product name
+def truncate(text, length):
+    if len(text) > length:
+        return text[:length] + "..."
+    else:
+        return text
+
 # Recommendations functions
+
 #Rating based recommendation
 average_ratings = df.groupby(['product_id', 'product_name', 'actual_price', 'category', 'about_product', 'product_link', 'rating_count'])['rating'].mean().reset_index()
 top_rated_items = average_ratings.sort_values(by='rating', ascending=False)
@@ -119,15 +132,44 @@ def content_based_recommendations(df, item_name, top_n=10):
 
     return recommended_items_details
 
+# Collaborative Filtering Recommendations (Stub)
+def collaborative_filtering_recommendations(df, target_user_id, top_n=10):
+    # Implement your collaborative filtering logic here.
+    # For now, returning an empty DataFrame as a placeholder.
+    user_item_matrix = pd.pivot_table(df, values='rating', index='user_id', columns='product_id')
+    recommendations = [] 
+    return pd.DataFrame(recommendations)
+
+# Hybrid Recommendations
+def get_browsing_history(user_id):
+    history = BrowsingHistory.query.filter_by(user_id=user_id).all()
+    return [entry.product_id for entry in history]
+
+def hybrid_recommendations(df, target_user_id, item_name, top_n=10):
+    content_based_rec = content_based_recommendations(df, item_name, top_n)
+    collaborative_filtering_rec = collaborative_filtering_recommendations(df, target_user_id, top_n)
+    browsinghistory = get_browsing_history(target_user_id)
+
+    if browsinghistory:
+        history_recommendations = df[df['product_id'].isin(browsinghistory)].head(top_n)
+        hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, history_recommendations]).drop_duplicates()
+    else:
+        hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec]).drop_duplicates()
+
+    return hybrid_rec.head(top_n)
+
 # routes
 @app.route("/")
 def index():
-    top_rated_items = pd.read_csv('top_rated_products.csv')
-    return render_template('index.html', top_rated_items=top_rated_items)
+    target_user_id = session.get('user_id')
+    item_name = ""
+    hybrid_rec = hybrid_recommendations(df, target_user_id, item_name, top_n=10)
+
+    return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate, hybrid_rec=hybrid_rec)
 
 @app.route("/index")
 def home():   
-    return render_template('index.html')
+    return render_template('index.html', truncate=truncate)
 
 @app.route('/navbar')
 def navbar():
@@ -144,40 +186,62 @@ def signup():
         db.session.add(new_signup)
         db.session.commit()
 
+        return redirect(url_for('index'))
 
 
-# Route for signup page
+
+# Route for sigin page
 @app.route('/signin', methods=['POST', 'GET'])
 def signin():
     if request.method == 'POST':
         username = request.form['signinUsername']
         password = request.form['signinPassword']
-        new_signup = Signin(username=username,password=password)
-        db.session.add(new_signup)
-        db.session.commit()
-
         
-    
+        user = Signin.query.filter_by(username=username, password=password).first()
+
+        if user:
+            # Store the user_id in the session
+            session['user_id'] = user.id
+            
+            # Render the index page
+            return redirect(url_for('index'))
+        else:
+            # If credentials are incorrect, show an error message
+            return render_template('index.html', error="Invalid credentials")
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)  # Remove user_id from session
+    return render_template('signin.html', message="You have been logged out.")
+
 @app.route("/recommendations", methods=['POST', 'GET'])
 def recommendations():
-    
     if request.method == 'POST':
-        prod = request.form.get('prod')
+        target_user_id = session.get('user_id')
+        item_name = request.form.get('prod')
         nbr = int(request.form.get('nbr'))
-        content_based_rec = content_based_recommendations(df, prod, top_n=nbr)
-
-        if content_based_rec.empty:
-            message = "No recommendations available for this product."
-
-            # Make sure to load the top rated items to show them
-            top_rated_items = pd.read_csv('top_rated_products.csv')
-
-            return render_template('index.html', message=message,  top_rated_items=top_rated_items)
-        else:
-            return render_template('recommendations.html', content_based_rec=content_based_rec)
         
-    # If the request is not POST, just render the index
-    return render_template('index.html')
+        # Save browsing history
+        history_entry = BrowsingHistory(user_id=target_user_id, product_id=df[df['product_name'] == item_name]['product_id'].values[0])
+        db.session.add(history_entry)
+        db.session.commit()
+        
+        # Save browsing history if item_name is provided
+        if item_name:
+            product_id = df[df['product_name'] == item_name]['product_id'].values[0]
+            history_entry = BrowsingHistory(user_id=target_user_id, product_id=product_id)
+            db.session.add(history_entry)
+            db.session.commit()
+
+            hybrid_rec = hybrid_recommendations(df, target_user_id, item_name, top_n=nbr)
+
+            if hybrid_rec.empty:
+                message = "No recommendations available for this product."
+                return render_template('index.html', message=message, top_rated_items=rating_base_recommendation, truncate=truncate)
+            else:
+                return render_template('recommendations.html', hybrid_rec=hybrid_rec, truncate=truncate)
+        
+    return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate)
        
 
 if __name__=='__main__':
