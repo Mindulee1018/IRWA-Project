@@ -83,22 +83,135 @@
       </form>
     </div>
 
+    <!-- Bootstrap modal for sign in -->
+    <div
+      class="modal fade"
+      id="signinModal"
+      tabindex="-1"
+      aria-labelledby="signinModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="signinModalLabel">Sign In</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form action="/signin" method="post">
+              <div class="mb-3">
+                <label for="signinUsername" class="form-label">Username</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="signinUsername"
+                  name="signinUsername"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="signinPassword" class="form-label">Password</label>
+                <input
+                  type="password"
+                  class="form-control"
+                  id="signinPassword"
+                  name="signinPassword"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn btn-primary">Sign In</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap modal for sign up -->
+    <div
+      class="modal fade"
+      id="signupModal"
+      tabindex="-1"
+      aria-labelledby="signupModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="signupModalLabel">Sign Up</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form action="/signup" method="post">
+              <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="username"
+                  name="username"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input
+                  type="email"
+                  class="form-control"
+                  id="email"
+                  name="email"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input
+                  type="password"
+                  class="form-control"
+                  id="password"
+                  name="password"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn btn-primary">Sign Up</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Products -->
     <div class="container mt-5">
       <h2 class="text-center mb-4">Recommended Products</h2>
       <div class="row mt-4">
-        {% for index, product in content_based_rec.iterrows() %}
+        {% if hybrid_rec is defined and hybrid_rec.empty == false %} {% for
+        index, product in hybrid_rec.iterrows() %}
         <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
           <div class="card">
             <div class="card-body">
               <h5 class="card-title">
-                {{ truncate(product['product_name'], 15) }}
-              </h5>              
+                {{ truncate(product['product_name'], 25) }}
+              </h5>
+              <img
+                src="{{ url_for('static', filename='Images/' + product['product_id'] ~ '.jpg') }}"
+                alt="{{ product['product_name'] }}"
+                style="width: 100px; height: 100px"
+              />
               <p class="card-text">Price: ${{ product['actual_price'] }}</p>
               <p class="card-text">
                 Rating: {{ product['rating'] }} ({{ product['rating_count'] }}
                 reviews)
               </p>
+              <p class="card-text">ProductID: {{ product['product_id'] }}</p>
               <button
                 type="button"
                 class="btn btn-primary"
@@ -122,9 +235,7 @@
           <div class="modal-dialog" role="document">
             <div class="modal-content">
               <div class="modal-header">
-                <h5 class="card-title">
-                  {{ truncate(product['product_name'], 15) }}
-                </h5>                
+                <h5 class="card-title">{{ product['product_name'] }}</h5>
                 <button
                   type="button"
                   class="close"
@@ -137,6 +248,11 @@
               <div class="modal-body">
                 <div class="row">
                   <div class="col-md-8">
+                    <img
+                      src="{{ url_for('static', filename='Images/' + product['product_id'] ~ '.jpg') }}"
+                      alt="{{ product['product_name'] }}"
+                      style="width: 100px; height: 100px"
+                    />
                     <p>
                       <strong>Review Count:</strong> {{ product['rating_count']
                       }}
@@ -163,7 +279,9 @@
             </div>
           </div>
         </div>
-        {% endfor %}
+        {% endfor %} {% else %}
+        <p class="text-center">No recommendations available.</p>
+        {% endif %}
       </div>
     </div>
   </body>
