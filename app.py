@@ -9,6 +9,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem.porter import PorterStemmer
 from sklearn.feature_extraction.text import CountVectorizer
+from datetime import datetime
 
 # Download punkt 
 nltk.download('punkt')
@@ -37,15 +38,17 @@ class Signup(db.Model):
 class Signin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), nullable=False)
-    password = db.Column(db.String(100), nullable=False)
+    signin_time = db.Column(default=datetime.now)
+
+    def __init__(self, user_id, product_name):
+        self.user_id = user_id
+        self.product_name = product_name
 
 # Define model class for browsing history
-class BrowsingHistory(db.Model):
+class Browsinghistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False)
-    product_id = db.Column(db.Integer, nullable=True)
-    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
-    product_names = db.Column(db.String(500), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('signup.id'), nullable=False)
+    product_name = db.Column(db.String(100), nullable=False)
 
 # Preprocess text for tags extraction
 stop_words = set(stopwords.words('english'))
@@ -128,7 +131,7 @@ def content_based_recommendations(df, item_name, top_n=10):
     recommended_item_indices = [x[0] for x in top_similar_items]
 
     # Get the details of the top similar items
-    recommended_items_details = df.iloc[recommended_item_indices][['product_name', 'rating_count', 'rating']]
+    recommended_items_details = df.iloc[recommended_item_indices][['product_id', 'product_name', 'actual_price', 'rating_count', 'rating']]
 
     return recommended_items_details
 
@@ -161,41 +164,78 @@ def collaborative_filtering_recommendations(df, target_user_id, top_n=10):
 
     return df[df['product_id'].isin(recommendations.index)][['product_name', 'rating_count', 'rating']]
 
-# Hybrid Recommendations
-def get_browsing_history(user_id):
-    history = BrowsingHistory.query.filter_by(user_id=user_id).all()
-    return [entry.product_id for entry in history]
+# Function to get user's most recent search products
+def get_user_recent_searches(user_id, df, limit=10):
+    
+    # Query the BrowsingHistory for the current user's searches ordered by most recent
+    recent_searches = (Browsinghistory.query
+                       .filter_by(user_id=user_id)
+                       .order_by(Browsinghistory.id.desc())
+                       .limit(limit)
+                       .all())
+    
+    # Create a list to hold detailed product information
+    product_details = []
+    seen_products = set()  # To track seen product names
 
-def hybrid_recommendations(df, target_user_id, item_name, top_n=10):
-    content_based_rec = content_based_recommendations(df, item_name, top_n)
-    collaborative_filtering_rec = collaborative_filtering_recommendations(df, target_user_id, top_n)
-    browsinghistory = get_browsing_history(target_user_id)
+    for search in recent_searches:
+        # Search for the product details in the DataFrame
+        product_detail = df[df['product_name'] == search.product_name]
+        
+        if not product_detail.empty:
+            # Extract the relevant details and append to the list
+            product_info = {
+                'product_id': product_detail['product_id'].values[0],
+                'product_name': product_detail['product_name'].values[0],
+                'actual_price': product_detail['actual_price'].values[0],
+                'rating': product_detail['rating'].values[0]
+            }
+            # Check if the product has already been seen
+            if product_info['product_name'] not in seen_products:
+                product_details.append(product_info)  # Add to the list
+                seen_products.add(product_info['product_name'])  # Mark as seen
 
-    # Combine recommendations while ensuring no duplicates
-    hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec])
-
-    if browsinghistory:
-        history_recommendations = df[df['product_id'].isin(browsinghistory)].head(top_n)
-        hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, history_recommendations]).drop_duplicates()
-
-    return hybrid_rec.head(top_n)
+    return product_details
 
 # routes
-@app.route("/")
+@app.route("/", methods=['GET'])
 def index():
-    target_user_id = session.get('user_id')
-    item_name = ""
-    if target_user_id is None:
-        # Redirect to the login page or show an appropriate message
-        return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate, message="Please log in to see personalized recommendations.")
+    # Check if user is logged in
+    recent_searches = []
+    if 'user_id' in session:
+        user_id = session['user_id']  # Get the logged-in user's ID
+        
+        # Get the top 10 most recent searches by the user
+        recent_searches = get_user_recent_searches(user_id, df, limit=10)
     
-    hybrid_rec = hybrid_recommendations(df, target_user_id, item_name, top_n=10)
+    # Load top-rated items (assuming 'rating_base_recommendation' is a list of top-rated products)
+    top_rated_items = rating_base_recommendation  # Your existing recommendation logic
+    
+    # Render the index page with both top-rated items and recent searches
+    return render_template('index.html', 
+                           top_rated_items=top_rated_items, 
+                           recent_searches=recent_searches, 
+                           truncate=truncate)
 
-    return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate, hybrid_rec=hybrid_rec)
 
 @app.route("/index")
 def home():   
-    return render_template('index.html', truncate=truncate, top_rated_items=rating_base_recommendation)
+        # Check if user is logged in
+    recent_searches = []
+    if 'user_id' in session:
+        user_id = session['user_id']  # Get the logged-in user's ID
+        
+        # Get the top 10 most recent searches by the user
+        recent_searches = get_user_recent_searches(user_id, df, limit=10)
+    
+    # Load top-rated items (assuming 'rating_base_recommendation' is a list of top-rated products)
+    top_rated_items = rating_base_recommendation  # Your existing recommendation logic
+    
+    # Render the index page with both top-rated items and recent searches
+    return render_template('index.html', 
+                           top_rated_items=top_rated_items, 
+                           recent_searches=recent_searches, 
+                           truncate=truncate)
 
 @app.route('/navbar')
 def navbar():
@@ -223,17 +263,28 @@ def signin():
         username = request.form['signinUsername']
         password = request.form['signinPassword']
         
-        user = Signin.query.filter_by(username=username, password=password).first()
+        user = Signup.query.filter_by(username=username).first()
 
         if user:
-            # Store the user_id in the session
-            session['user_id'] = user.id
+            # Verify the password
+            if user.password == password:
+                # Store the user_id in the session
+                session['user_id'] = user.id
+
+                signin_entry = Signin(username=user.username)
+                db.session.add(signin_entry)
+                db.session.commit()
             
-            # Render the index page
-            return redirect(url_for('index'))
+                # Render the index page
+                return redirect(url_for('index', truncate=truncate, top_rated_items=rating_base_recommendation))
+            
+            else:
+                # If credentials are incorrect, show an error message
+                return render_template('index', error="Invalid credentials")
         else:
-            # If credentials are incorrect, show an error message
-            return render_template('index.html', error="Invalid credentials")
+            # Username does not exist
+            return render_template('index.html', error="Username not found")
+        
 
 @app.route('/logout')
 def logout():
@@ -243,25 +294,34 @@ def logout():
 @app.route("/recommendations", methods=['POST', 'GET'])
 def recommendations():
     if request.method == 'POST':
-        target_user_id = session.get('user_id')
-        item_name = request.form.get('prod')
-        nbr = int(request.form.get('nbr'))
+        prod = request.form.get('prod')  # Get the product searched for recommendations
+        nbr = int(request.form.get('nbr'))  # Get the number of recommendations
 
-        if target_user_id and item_name:
-            # Create a new BrowsingHistory entry
-            history_entry = BrowsingHistory(user_id=target_user_id, product_id=None, timestamp=db.func.current_timestamp(), product_names=item_name)  # product_id is None for search
-            db.session.add(history_entry)
+        # Check if user is logged in
+        if 'user_id' in session:
+            user_id = session['user_id']  # Get the logged-in user's ID
+
+            # Log the search to BrowsingHistory
+            browsing_history_entry = Browsinghistory(user_id=user_id, product_name=prod)
+            db.session.add(browsing_history_entry)
             db.session.commit()
 
-        content_based_rec = content_based_recommendations(df, item_name, top_n=nbr)
+        # Generate content-based recommendations
+        content_based_rec = content_based_recommendations(df, prod, top_n=nbr)
 
+        # Handle the case where no recommendations are found
         if content_based_rec.empty:
-            message = "no recommendations available for this product."
-            
-            return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate, message=message)
+            message = "No recommendations available for this product."
+
+            return render_template('index.html', message=message, top_rated_items=rating_base_recommendation, truncate=truncate)
         else:
-            return render_template('recommendations.html', content_based_rec = content_based_rec, truncate=truncate)
-    return render_template('index.html', top_rated_items=rating_base_recommendation, truncate=truncate)
+            return render_template('recommendations.html', content_based_rec=content_based_rec, truncate=truncate)
+
+    # If the request is not POST, just render the index page
+    return render_template('index.html', truncate=truncate)
+
+
+
 
 if __name__=='__main__':
     app.run(debug=True)
