@@ -1,3 +1,13 @@
+<!-- Bootstrap CSS -->
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+<!-- jQuery and Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+
+<!-- Navbar -->
 <!-- Navbar -->
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
   <a class="navbar-brand mx-auto" href="#">Ecommerce Recommendation System</a>
@@ -18,24 +28,61 @@
         <a class="nav-link" href="index"><i class="fas fa-home"></i> Home</a>
       </li>
 
-      <li class="nav-item">
-        <a
-          class="nav-link btn btn-outline-primary mr-2"
-          href="#"
-          data-toggle="modal"
-          data-target="#signupModal"
-          >Sign Up</a
-        >
-      </li>
-      <li class="nav-item">
-        <a
-          class="nav-link btn btn-primary"
-          href="#"
-          data-toggle="modal"
-          data-target="#signinModal"
-          >Sign In</a
-        >
-      </li>
+      {% if 'user_id' in session %}
+        <li class="nav-item">
+          <span class="navbar-text">Welcome, {{ user_id }}!</span>
+        </li>
+        <li class="nav-item">
+          <a
+            class="nav-link btn btn-primary"
+            data-target="#logoutModal"
+            data-toggle="modal"
+            style="margin-left: 50px;"
+            >Log out</a
+          >
+        </li>
+      {% else %}
+        <li class="nav-item">
+          <a
+            class="nav-link btn btn-outline-primary mr-2"
+            href="#"
+            data-toggle="modal"
+            data-target="#signupModal"
+            >Sign Up</a
+          >
+        </li>
+        <li class="nav-item">
+          <a
+            class="nav-link btn btn-primary"
+            href="#"
+            data-toggle="modal"
+            data-target="#signinModal"
+            >Sign In</a
+          >
+        </li>
+      {% endif %}
     </ul>
   </div>
 </nav>
+
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="logoutModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+      <div class="modal-content">
+          <div class="modal-header">
+              <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+              </button>
+          </div>
+          <div class="modal-body">
+              Are you sure you want to log out?
+          </div>
+          <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+              <a href="{{ url_for('logout') }}" class="btn btn-primary">Log Out</a>
+          </div>
+      </div>
+  </div>
+</div>
