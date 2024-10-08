@@ -40,15 +40,20 @@ class Signin(db.Model):
     username = db.Column(db.String(100), nullable=False)
     signin_time = db.Column(default=datetime.now)
 
-    def __init__(self, user_id, product_name):
-        self.user_id = user_id
-        self.product_name = product_name
+    def __init__(self, username):
+        self.username = username
+        self.signin_time = datetime.utcnow()
+        
 
 # Define model class for browsing history
 class Browsinghistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('signup.id'), nullable=False)
     product_name = db.Column(db.String(100), nullable=False)
+
+    def __init__(self, user_id, product_name):
+        self.user_id = user_id
+        self.product_name = product_name
 
 # Preprocess text for tags extraction
 stop_words = set(stopwords.words('english'))
@@ -197,14 +202,38 @@ def get_user_recent_searches(user_id, df, limit=10):
 
     return product_details
 
+def find_similar_products(recent_products, df, limit=10):
+    similar_products = set()
+    for product in recent_products:
+        # Find products in the same category
+        category_products = df[df['category'] == product['category']]
+        similar_products.update(category_products['product_name'].tolist())
+
+    # Exclude products that the user has already seen
+    similar_products = [product for product in similar_products if product not in seen_products]
+
+    # Limit the number of similar products
+    similar_product_details = df[df['product_name'].isin(similar_products)].head(limit)
+
+    return similar_product_details[['product_name', 'actual_price', 'rating']].to_dict(orient='records')
+
+
 # routes
 @app.route("/", methods=['GET'])
 def index():
     # Check if user is logged in
     recent_searches = []
+    username = None
+
     if 'user_id' in session:
         user_id = session['user_id']  # Get the logged-in user's ID
-        
+    
+        # Query the Signup table to fetch the username based on user_id
+        user = Signup.query.filter_by(id=user_id).first()
+
+        if user:
+            username = user.username
+
         # Get the top 10 most recent searches by the user
         recent_searches = get_user_recent_searches(user_id, df, limit=10)
     
@@ -215,16 +244,24 @@ def index():
     return render_template('index.html', 
                            top_rated_items=top_rated_items, 
                            recent_searches=recent_searches, 
-                           truncate=truncate)
+                           truncate=truncate,
+                           username=username)
 
 
 @app.route("/index")
 def home():   
         # Check if user is logged in
     recent_searches = []
+    username = None
+
     if 'user_id' in session:
         user_id = session['user_id']  # Get the logged-in user's ID
-        
+        username = session['username'] 
+
+        # Check if the username is present in the session
+        if 'username' in session:
+            username = session['username']
+
         # Get the top 10 most recent searches by the user
         recent_searches = get_user_recent_searches(user_id, df, limit=10)
     
@@ -235,7 +272,8 @@ def home():
     return render_template('index.html', 
                            top_rated_items=top_rated_items, 
                            recent_searches=recent_searches, 
-                           truncate=truncate)
+                           truncate=truncate,
+                           username=username)
 
 @app.route('/navbar')
 def navbar():
@@ -270,8 +308,9 @@ def signin():
             if user.password == password:
                 # Store the user_id in the session
                 session['user_id'] = user.id
+                session['username'] = user.username
 
-                signin_entry = Signin(username=user.username)
+                signin_entry = Signin( username=user.username)
                 db.session.add(signin_entry)
                 db.session.commit()
             
@@ -289,7 +328,7 @@ def signin():
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)  # Remove user_id from session
-    return render_template('signin.html', message="You have been logged out.")
+    return render_template('index.html', message="You have been logged out.", top_rated_items=rating_base_recommendation, truncate=truncate)
 
 @app.route("/recommendations", methods=['POST', 'GET'])
 def recommendations():
@@ -300,6 +339,7 @@ def recommendations():
         # Check if user is logged in
         if 'user_id' in session:
             user_id = session['user_id']  # Get the logged-in user's ID
+            username = session['username'] 
 
             # Log the search to BrowsingHistory
             browsing_history_entry = Browsinghistory(user_id=user_id, product_name=prod)
@@ -321,6 +361,41 @@ def recommendations():
     return render_template('index.html', truncate=truncate)
 
 
+@app.route("/recommended", methods=['POST', 'GET'])
+def recommended():
+    if request.method == 'POST':
+        prod = request.form.get('prod')  # Get the product searched for recommendations
+        nbr = int(request.form.get('nbr'))  # Get the number of recommendations
+
+        # Check if user is logged in
+        if 'user_id' in session:
+            user_id = session['user_id']  # Get the logged-in user's ID
+            username = session['username'] 
+
+            # Log the search to BrowsingHistory
+            browsing_history_entry = Browsinghistory(user_id=user_id, product_name=prod)
+            db.session.add(browsing_history_entry)
+            db.session.commit()
+
+            # Generate content-based recommendations
+            content_based_rec = content_based_recommendations(df, prod, top_n=nbr)
+
+            # Handle the case where no recommendations are found
+            if content_based_rec.empty:
+                message = "No recommendations available for this product."
+                return render_template('index.html', message=message, top_rated_items=rating_base_recommendation, truncate=truncate)
+
+            # Get collaborative filtering recommendations based on the user's browsing history
+            collaborative_recommendations = collaborative_filtering_recommendations(df, user_id)
+
+            # Combine content-based and collaborative recommendations
+            combined_recommendations = pd.concat([content_based_rec, collaborative_recommendations], ignore_index=True).drop_duplicates()
+
+            # Render the recommendations in the new template
+            return render_template('recommended_for_you.html', recommended_products=combined_recommendations, top_rated_items=rating_base_recommendation)
+
+    # If the request is not POST, just render the index page
+    return render_template('index.html', truncate=truncate, top_rated_items=rating_base_recommendation)
 
 
 if __name__=='__main__':
