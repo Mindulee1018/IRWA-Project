@@ -28,9 +28,9 @@
         <a class="nav-link" href="index"><i class="fas fa-home"></i> Home</a>
       </li>
 
-      {% if 'user_id' in session %}
+      {% if 'username' in session %}
         <li class="nav-item">
-          <span class="navbar-text">Welcome, {{ user_id }}!</span>
+          <span class="navbar-text">Welcome, {{ session['username'] }}!</span>
         </li>
         <li class="nav-item">
           <a
