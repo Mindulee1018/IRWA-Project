@@ -193,8 +193,7 @@
     <div class="container mt-5">
       <h2 class="text-center mb-4">Recommended Products</h2>
       <div class="row mt-4">
-        {% if hybrid_rec is defined and hybrid_rec.empty == false %} {% for
-        index, product in hybrid_rec.iterrows() %}
+        {% for index, product in content_based_rec.iterrows() %}
         <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
           <div class="card">
             <div class="card-body">
@@ -279,9 +278,9 @@
             </div>
           </div>
         </div>
-        {% endfor %} {% else %}
-        <p class="text-center">No recommendations available.</p>
-        {% endif %}
+        {% endfor %} 
+        
+        
       </div>
     </div>
   </body>
